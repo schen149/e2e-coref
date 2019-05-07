@@ -35,6 +35,8 @@ class CorefModel(object):
     self.lm_size = self.config["lm_size"]
     self.eval_data = None # Load eval data lazily.
 
+    self._use_gold_mention = ("use_gold_mention" in self.config) and self.config["use_gold_mention"]
+
     input_props = []
     input_props.append((tf.string, [None, None])) # Tokens.
     input_props.append((tf.float32, [None, None, self.context_embeddings.size])) # Context embeddings.
@@ -537,7 +539,7 @@ class CorefModel(object):
         return self.tensorize_example(example, is_training=False), example
       with open(self.config["eval_path"]) as f:
         self.eval_data = [load_line(l) for l in f.readlines()]
-      num_words = sum(tensorized_example[2].sum() for tensorized_example, _ in self.eval_data)
+      # num_words = sum(tensorized_example[2].sum() for tensorized_example, _ in self.eval_data)
       print("Loaded {} eval examples.".format(len(self.eval_data)))
 
   def evaluate(self, session, official_stdout=False):
@@ -556,10 +558,12 @@ class CorefModel(object):
         print("Evaluated {}/{} examples.".format(example_num + 1, len(self.eval_data)))
 
     summary_dict = {}
-    conll_results = conll.evaluate_conll(self.config["conll_eval_path"], coref_predictions, official_stdout)
-    average_f1 = sum(results["f"] for results in conll_results.values()) / len(conll_results)
-    summary_dict["Average F1 (conll)"] = average_f1
-    print("Average F1 (conll): {:.2f}%".format(average_f1))
+
+    if "conll_eval_path" in self.config:
+      conll_results = conll.evaluate_conll(self.config["conll_eval_path"], coref_predictions, official_stdout)
+      average_f1 = sum(results["f"] for results in conll_results.values()) / len(conll_results)
+      summary_dict["Average F1 (conll)"] = average_f1
+      print("Average F1 (conll): {:.2f}%".format(average_f1))
 
     p,r,f = coref_evaluator.get_prf()
     summary_dict["Average F1 (py)"] = f
