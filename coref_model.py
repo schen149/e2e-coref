@@ -35,6 +35,8 @@ class CorefModel(object):
     self.lm_size = self.config["lm_size"]
     self.eval_data = None # Load eval data lazily.
 
+    self._use_gold_mention = ("use_gold_mention" in self.config) and self.config["use_gold_mention"]
+
     input_props = []
     input_props.append((tf.string, [None, None])) # Tokens.
     input_props.append((tf.float32, [None, None, self.context_embeddings.size])) # Context embeddings.
@@ -286,7 +288,22 @@ class CorefModel(object):
     candidate_ends = candidate_starts + tf.expand_dims(tf.range(self.max_span_width), 0) # [num_words, max_span_width]
     candidate_start_sentence_indices = tf.gather(flattened_sentence_indices, candidate_starts) # [num_words, max_span_width]
     candidate_end_sentence_indices = tf.gather(flattened_sentence_indices, tf.minimum(candidate_ends, num_words - 1)) # [num_words, max_span_width]
-    candidate_mask = tf.logical_and(candidate_ends < num_words, tf.equal(candidate_start_sentence_indices, candidate_end_sentence_indices)) # [num_words, max_span_width]
+
+    if self._use_gold_mention:
+      gold_mention_mask = tf.zeros_like(candidate_ends)
+      _indices = []
+      _values = []
+      for idx, _start in enumerate(gold_starts):
+        _end = gold_ends[idx]
+        _span_width_idx = _end - _start - 1
+        _indices.append([_start, _span_width_idx])
+        _values.append(1.0)
+      _gold_mention_mask = tf.SparseTensor(_indices, _values, tf.shape(candidate_ends))
+      gold_mention_mask = tf.sparse_tensor_to_dense(_gold_mention_mask)
+    else:
+      gold_mention_mask = tf.ones_like(candidate_ends)
+
+    candidate_mask = tf.logical_and(candidate_ends < num_words, tf.equal(candidate_start_sentence_indices, candidate_end_sentence_indices), gold_mention_mask) # [num_words, max_span_width]
     flattened_candidate_mask = tf.reshape(candidate_mask, [-1]) # [num_words * max_span_width]
     candidate_starts = tf.boolean_mask(tf.reshape(candidate_starts, [-1]), flattened_candidate_mask) # [num_candidates]
     candidate_ends = tf.boolean_mask(tf.reshape(candidate_ends, [-1]), flattened_candidate_mask) # [num_candidates]
@@ -537,7 +554,7 @@ class CorefModel(object):
         return self.tensorize_example(example, is_training=False), example
       with open(self.config["eval_path"]) as f:
         self.eval_data = [load_line(l) for l in f.readlines()]
-      num_words = sum(tensorized_example[2].sum() for tensorized_example, _ in self.eval_data)
+      # num_words = sum(tensorized_example[2].sum() for tensorized_example, _ in self.eval_data)
       print("Loaded {} eval examples.".format(len(self.eval_data)))
 
   def evaluate(self, session, official_stdout=False):
@@ -556,10 +573,12 @@ class CorefModel(object):
         print("Evaluated {}/{} examples.".format(example_num + 1, len(self.eval_data)))
 
     summary_dict = {}
-    conll_results = conll.evaluate_conll(self.config["conll_eval_path"], coref_predictions, official_stdout)
-    average_f1 = sum(results["f"] for results in conll_results.values()) / len(conll_results)
-    summary_dict["Average F1 (conll)"] = average_f1
-    print("Average F1 (conll): {:.2f}%".format(average_f1))
+
+    if "conll_eval_path" in self.config:
+      conll_results = conll.evaluate_conll(self.config["conll_eval_path"], coref_predictions, official_stdout)
+      average_f1 = sum(results["f"] for results in conll_results.values()) / len(conll_results)
+      summary_dict["Average F1 (conll)"] = average_f1
+      print("Average F1 (conll): {:.2f}%".format(average_f1))
 
     p,r,f = coref_evaluator.get_prf()
     summary_dict["Average F1 (py)"] = f

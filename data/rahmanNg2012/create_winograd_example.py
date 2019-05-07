@@ -81,6 +81,29 @@ def read_rahman_ng(input_path, output_path, set_name="test"):
         json.dump(instances, fout)
 
 def convert_winograd_to_e2e_format(dataset_path, output_path):
+    """
+    convert rahman and ng to .jsonline format
+    :param dataset_path:
+    :param output_path:
+    :return:
+    """
+    with open(dataset_path) as fin, open(output_path, 'w') as fout:
+        data = json.load(fin)
+
+        for instance in data:
+            sentences = [instance["tokens"]]
+            json_inst = {
+                "doc_key": "nw_{}".format(instance["id"]),
+                "clusters": [[instance["correct_mention"], instance["pronoun"]], [instance["wrong_mention"]]],
+                "sentences": sentences,
+                "speakers": [["" for _ in sentence] for sentence in sentences],
+            }
+
+            inst_str = json.dumps(json_inst)
+            fout.write(inst_str)
+            fout.write('\n')
+
 
 if __name__ == '__main__':
-    read_rahman_ng("rahman_ng_test.txt", "rahman_ng_test.json", "test")
+    # read_rahman_ng("rahman_ng_test.txt", "rahman_ng_test.json", "test")
+    convert_winograd_to_e2e_format("rahman_ng_test.json", "rahman_ng_test.jsonlines")
