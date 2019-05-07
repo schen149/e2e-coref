@@ -249,8 +249,8 @@ class CorefModel(object):
     if not self.lm_file:
       elmo_module = hub.Module("https://tfhub.dev/google/elmo/2")
       lm_embeddings = elmo_module(
-          inputs={"tokens": tokens, "sequence_len": text_len},
-          signature="tokens", as_dict=True)
+        inputs={"tokens": tokens, "sequence_len": text_len},
+        signature="tokens", as_dict=True)
       word_emb = lm_embeddings["word_emb"]  # [num_sentences, max_sentence_length, 512]
       lm_emb = tf.stack([tf.concat([word_emb, word_emb], -1),
                          lm_embeddings["lstm_outputs1"],
