@@ -290,14 +290,8 @@ class CorefModel(object):
     candidate_end_sentence_indices = tf.gather(flattened_sentence_indices, tf.minimum(candidate_ends, num_words - 1)) # [num_words, max_span_width]
 
     if self._use_gold_mention:
-      gold_mention_mask = tf.zeros_like(candidate_ends)
-      _indices = []
-      _values = []
-      for idx, _start in enumerate(gold_starts):
-        _end = gold_ends[idx]
-        _span_width_idx = _end - _start - 1
-        _indices.append([_start, _span_width_idx])
-        _values.append(1.0)
+      _indices = tf.stack([gold_starts, gold_ends])
+      _values = tf.ones_like(gold_starts)
       _gold_mention_mask = tf.SparseTensor(_indices, _values, tf.shape(candidate_ends))
       gold_mention_mask = tf.sparse_tensor_to_dense(_gold_mention_mask)
     else:
