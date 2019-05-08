@@ -290,14 +290,19 @@ class CorefModel(object):
     candidate_end_sentence_indices = tf.gather(flattened_sentence_indices, tf.minimum(candidate_ends, num_words - 1)) # [num_words, max_span_width]
 
     if self._use_gold_mention:
-      _indices = tf.stack([gold_starts, gold_ends])
+      _mention_len = tf.subtract(gold_ends, gold_starts) - 1
+      _indices = tf.stack([gold_starts, _mention_len])
+      _indices = tf.cast(_indices, dtype=tf.int64)
       _values = tf.ones_like(gold_starts)
-      _gold_mention_mask = tf.SparseTensor(_indices, _values, tf.shape(candidate_ends))
-      gold_mention_mask = tf.sparse_tensor_to_dense(_gold_mention_mask)
+      gold_starts = tf.print(gold_starts, [gold_starts])    
+      _gold_mention_mask = tf.SparseTensor(_indices, _values, tf.shape(candidate_ends, out_type=tf.int64))
+      _gold_mention_mask = tf.print(_gold_mention_mask, [_gold_mention_mask])
+      gold_mention_mask = tf.sparse.to_dense(_gold_mention_mask)
     else:
       gold_mention_mask = tf.ones_like(candidate_ends)
 
-    candidate_mask = tf.logical_and(candidate_ends < num_words, tf.equal(candidate_start_sentence_indices, candidate_end_sentence_indices), gold_mention_mask) # [num_words, max_span_width]
+    candidate_mask = tf.logical_and(candidate_ends < num_words, tf.equal(candidate_start_sentence_indices, candidate_end_sentence_indices)) # [num_words, max_span_width]
+    candidate_mask = tf.logical_and(candidate_mask, tf.greater(gold_mention_mask, tf.zeros_like(gold_mention_mask)))
     flattened_candidate_mask = tf.reshape(candidate_mask, [-1]) # [num_words * max_span_width]
     candidate_starts = tf.boolean_mask(tf.reshape(candidate_starts, [-1]), flattened_candidate_mask) # [num_candidates]
     candidate_ends = tf.boolean_mask(tf.reshape(candidate_ends, [-1]), flattened_candidate_mask) # [num_candidates]
