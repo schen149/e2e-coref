@@ -290,13 +290,11 @@ class CorefModel(object):
     candidate_end_sentence_indices = tf.gather(flattened_sentence_indices, tf.minimum(candidate_ends, num_words - 1)) # [num_words, max_span_width]
 
     if self._use_gold_mention:
-      _mention_len = tf.subtract(gold_ends, gold_starts) - 1
-      _indices = tf.stack([gold_starts, _mention_len])
+      _mention_len = gold_ends - gold_starts - 1
+      _indices = tf.transpose(tf.stack([gold_starts, _mention_len]))
       _indices = tf.cast(_indices, dtype=tf.int64)
       _values = tf.ones_like(gold_starts)
-      gold_starts = tf.print(gold_starts, [gold_starts])    
       _gold_mention_mask = tf.SparseTensor(_indices, _values, tf.shape(candidate_ends, out_type=tf.int64))
-      _gold_mention_mask = tf.print(_gold_mention_mask, [_gold_mention_mask])
       gold_mention_mask = tf.sparse.to_dense(_gold_mention_mask)
     else:
       gold_mention_mask = tf.ones_like(candidate_ends)
@@ -573,7 +571,7 @@ class CorefModel(object):
 
     summary_dict = {}
 
-    if "conll_eval_path" in self.config:
+    if ("conll_eval_path" in self.config) and self.config["conll_eval_path"]:
       conll_results = conll.evaluate_conll(self.config["conll_eval_path"], coref_predictions, official_stdout)
       average_f1 = sum(results["f"] for results in conll_results.values()) / len(conll_results)
       summary_dict["Average F1 (conll)"] = average_f1
