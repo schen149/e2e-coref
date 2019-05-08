@@ -11,7 +11,7 @@ def _find_mention_span(tokens, mention_toks):
             span_start = i
             break
     if span_start is not None:
-        return span_start, span_start + mention_len
+        return span_start, span_start + mention_len - 1
     else:
         return None, None
 
@@ -105,5 +105,5 @@ def convert_winograd_to_e2e_format(dataset_path, output_path):
 
 
 if __name__ == '__main__':
-    # read_rahman_ng("rahman_ng_test.txt", "rahman_ng_test.json", "test")
+    read_rahman_ng("rahman_ng_test.txt", "rahman_ng_test.json", "test")
     convert_winograd_to_e2e_format("rahman_ng_test.json", "rahman_ng_test.jsonlines")

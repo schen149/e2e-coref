@@ -290,7 +290,7 @@ class CorefModel(object):
     candidate_end_sentence_indices = tf.gather(flattened_sentence_indices, tf.minimum(candidate_ends, num_words - 1)) # [num_words, max_span_width]
 
     if self._use_gold_mention:
-      _mention_len = gold_ends - gold_starts - 1
+      _mention_len = gold_ends - gold_starts
       _indices = tf.transpose(tf.stack([gold_starts, _mention_len]))
       _indices = tf.cast(_indices, dtype=tf.int64)
       _values = tf.ones_like(gold_starts)
@@ -566,6 +566,7 @@ class CorefModel(object):
       candidate_starts, candidate_ends, candidate_mention_scores, top_span_starts, top_span_ends, top_antecedents, top_antecedent_scores = session.run(self.predictions, feed_dict=feed_dict)
       predicted_antecedents = self.get_predicted_antecedents(top_antecedents, top_antecedent_scores)
       coref_predictions[example["doc_key"]] = self.evaluate_coref(top_span_starts, top_span_ends, predicted_antecedents, example["clusters"], coref_evaluator)
+      print("Gold: {}\t Pred: {}".format(example["clusters"], coref_predictions[example["doc_key"]]))
       if example_num % 10 == 0:
         print("Evaluated {}/{} examples.".format(example_num + 1, len(self.eval_data)))
 
@@ -585,4 +586,5 @@ class CorefModel(object):
     summary_dict["Average recall (py)"] = r
     print("Average recall (py): {:.2f}%".format(r * 100))
 
-    return util.make_summary(summary_dict), average_f1
+    # return util.make_summary(summary_dict), average_f1
+    return util.make_summary(summary_dict), f
